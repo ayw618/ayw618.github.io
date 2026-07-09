@@ -7,7 +7,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://ayw618.github.io/img/nailong.jpg">
 <meta property="article:published_time" content="2026-07-08T03:26:49.000Z">
-<meta property="article:modified_time" content="2026-07-09T15:27:20.187Z">
+<meta property="article:modified_time" content="2026-07-09T16:20:58.359Z">
 <meta property="article:author" content="ayw618@qq.com">
 <meta property="article:tag" content="Agentic RL">
 <meta property="article:tag" content="Post Training">
@@ -24,7 +24,7 @@
   "url": "https://ayw618.github.io/2026/07/08/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/~4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/",
   "image": "https://ayw618.github.io/img/nailong.jpg",
   "datePublished": "2026-07-08T03:26:49.000Z",
-  "dateModified": "2026-07-09T15:27:20.187Z",
+  "dateModified": "2026-07-09T16:20:58.359Z",
   "author": [
     {
       "@type": "Person",
@@ -165,7 +165,7 @@
   isHighlightShrink: false,
   isToc: true,
   pageType: 'post'
-}</script><meta name="generator" content="Hexo 8.1.2"></head><body><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Aog的博客</span></a><a class="nav-page-title" href="/"><span class="site-name">4B 小模型 Agentic RL 实验（草稿）</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"></div></nav><div id="post-info"><h1 class="post-title">4B 小模型 Agentic RL 实验（草稿）</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-08T03:26:49.000Z" title="发表于 2026-07-08 11:26:49">2026-07-08</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-09T15:27:20.187Z" title="更新于 2026-07-09 23:27:20">2026-07-09</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E8%8D%89%E7%A8%BF/">草稿</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>4B 小模型 Agentic RL 实验</p>
+}</script><meta name="generator" content="Hexo 8.1.2"></head><body><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Aog的博客</span></a><a class="nav-page-title" href="/"><span class="site-name">4B 小模型 Agentic RL 实验（草稿）</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"></div></nav><div id="post-info"><h1 class="post-title">4B 小模型 Agentic RL 实验（草稿）</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-08T03:26:49.000Z" title="发表于 2026-07-08 11:26:49">2026-07-08</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-09T16:20:58.359Z" title="更新于 2026-07-10 00:20:58">2026-07-10</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E8%8D%89%E7%A8%BF/">草稿</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>4B 小模型 Agentic RL 实验</p>
 <span id="more"></span>
 <h2 id="实验概述"><a href="#实验概述" class="headerlink" title="实验概述"></a>实验概述</h2><p>实验目的探索小模型上的工具调用情况，并进行优化验证。以专家任务作为示例，构建相关的SFT和RL数据集，以及对应的工具。</p>
 <ul>
@@ -222,9 +222,9 @@
 </ul>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">num_turns = 0 (user/tool response) + 1 (assistant) + 1 (初始) = 2</span><br></pre></td></tr></table></figure>
 <ul>
-<li><p>acc_mean@1曲线: 可以发现初始准确率就达到了60%以上。后续收敛到85%~87%<br><img src="/1-val-core_acc_mean@1.svg" alt="验证准确率曲线"></p>
+<li><p>acc_mean@1曲线: 可以发现初始准确率就达到了60%以上。后续收敛到85%~87%<br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/1-val-core_acc_mean@1.svg" alt="验证准确率曲线"></p>
 </li>
-<li><p>critic&#x2F;rewards&#x2F;mean曲线: 训练到最后1250步时，rewards有下降趋势，而且从波动曲线来看，训练到1000~1100步时，便已经收敛<br><img src="/1-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/1-actor_entropy.svg" alt="交叉熵曲线"></p>
+<li><p>critic&#x2F;rewards&#x2F;mean曲线: 训练到最后1250步时，rewards有下降趋势，而且从波动曲线来看，训练到1000~1100步时，便已经收敛<br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/1-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/1-actor_entropy.svg" alt="交叉熵曲线"></p>
 </li>
 </ul>
 <hr>
@@ -244,11 +244,11 @@
 <li><code>num_turns = 8</code>: 有 user 的回复（即 tool response）。但是出现冗余调用，导致 num turns 始终为8</li>
 </ul>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">num_turns = 3 (user/tool response) + 4 (assistant) + 1 (初始) = 8</span><br></pre></td></tr></table></figure>
-<p><img src="/2-num_turns_mean.svg" alt="对话轮次曲线"></p>
+<p><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/2-num_turns_mean.svg" alt="对话轮次曲线"></p>
 <ul>
-<li><p>acc_mean@1曲线: 可以发现初始准确率就达到了85%以上。后续收敛到96%~98%<br><img src="/2-val-core_acc_mean@1.svg" alt="验证准确率曲线"></p>
+<li><p>acc_mean@1曲线: 可以发现初始准确率就达到了85%以上。后续收敛到96%~98%<br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/2-val-core_acc_mean@1.svg" alt="验证准确率曲线"></p>
 </li>
-<li><p>critic&#x2F;rewards&#x2F;mean曲线: 仅仅训练700步时，奖励得分、优势、交叉熵均达到收敛标准。相关评估得分也已经达到了95%以上<br><img src="/2-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/2-actor_entropy.svg" alt="交叉熵曲线"><br><img src="/2-critic_advantages_mean.svg" alt="优势曲线"></p>
+<li><p>critic&#x2F;rewards&#x2F;mean曲线: 仅仅训练700步时，奖励得分、优势、交叉熵均达到收敛标准。相关评估得分也已经达到了95%以上<br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/2-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/2-actor_entropy.svg" alt="交叉熵曲线"><br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/2-critic_advantages_mean.svg" alt="优势曲线"></p>
 </li>
 </ul>
 <h2 id="第三阶段"><a href="#第三阶段" class="headerlink" title="第三阶段"></a>第三阶段</h2><blockquote>
@@ -269,11 +269,11 @@
 </li>
 </ul>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">num_turns = 3 (user/tool response) + 4 (assistant) + 1 (初始) = 8</span><br></pre></td></tr></table></figure>
-<p><img src="/3-num_turns_mean.svg" alt="对话轮次曲线"></p>
+<p><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/3-num_turns_mean.svg" alt="对话轮次曲线"></p>
 <ul>
-<li><p>acc_mean@1曲线: 可以发现初始准确率就达到了65%以上。后续收敛到92%~94%<br><img src="/3-val-core_acc_mean@1.svg" alt="验证准确率曲线"></p>
+<li><p>acc_mean@1曲线: 可以发现初始准确率就达到了65%以上。后续收敛到92%~94%<br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/3-val-core_acc_mean@1.svg" alt="验证准确率曲线"></p>
 </li>
-<li><p>critic&#x2F;rewards&#x2F;mean曲线: 训练900步之后，奖励得分、优势、交叉熵均达到收敛标准。相关评估得分也已经达到了90%以上<br><img src="/3-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/3-actor_entropy.svg" alt="交叉熵曲线"><br><img src="/3-critic_advantages_mean.svg" alt="优势曲线"></p>
+<li><p>critic&#x2F;rewards&#x2F;mean曲线: 训练900步之后，奖励得分、优势、交叉熵均达到收敛标准。相关评估得分也已经达到了90%以上<br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/3-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/3-actor_entropy.svg" alt="交叉熵曲线"><br><img src="/images/4B-%E5%B0%8F%E6%A8%A1%E5%9E%8B-Agentic-RL-%E5%AE%9E%E9%AA%8C/3-critic_advantages_mean.svg" alt="优势曲线"></p>
 </li>
 </ul>
 <blockquote>
