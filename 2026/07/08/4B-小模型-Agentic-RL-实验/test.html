@@ -1,0 +1,254 @@
+<hr>
+<p>title: 4B 小模型 Agentic RL 实验<br>date: 2026-07-08 11:26:49<br>tags:</p>
+<ul>
+<li>Agentic RL</li>
+<li>模型训练</li>
+<li>工具调用</li>
+<li>后训练</li>
+<li>Post Training</li>
+<li>verl</li>
+<li>sft</li>
+<li>GRPO</li>
+<li>RLVR<br>categories:</li>
+<li>项目</li>
+</ul>
+<hr>
+<h1 id="4B-小模型-Agentic-RL-实验"><a href="#4B-小模型-Agentic-RL-实验" class="headerlink" title="4B 小模型 Agentic RL 实验"></a>4B 小模型 Agentic RL 实验</h1><!-- more -->
+
+<h2 id="实验概述"><a href="#实验概述" class="headerlink" title="实验概述"></a>实验概述</h2><p>本次实验聚焦小参数量模型的工具调用能力优化，以专家类计算任务为示例，探索 4B 规模模型通过“监督微调（SFT）冷启动 + 基于可验证奖励的强化学习（RLVR）“路径习得工具调用能力的效果与优化方向。实验基于 Qwen3-4B 基座，构建了匹配不同训练阶段的数据集与工具执行环境，完整复现了从冷启动到策略优化的全流程。</p>
+<h3 id="基础训练配置"><a href="#基础训练配置" class="headerlink" title="基础训练配置"></a>基础训练配置</h3><ul>
+<li>算力资源：4 张 A100 显卡</li>
+<li>基座模型：Qwen3-4B</li>
+<li>SFT 框架：XTuner</li>
+<li>RL 框架：VERL</li>
+<li>核心 RL 算法：GRPO（Group Relative Policy Optimization，分组相对策略优化）。通过同 prompt 下多 rollout 的组内相对奖励估计优势，无需单独训练 Critic 价值网络，是当前 RLVR 范式下的主流对齐算法。</li>
+</ul>
+<h3 id="多阶段实验设计"><a href="#多阶段实验设计" class="headerlink" title="多阶段实验设计"></a>多阶段实验设计</h3><p>实验采用递进式三阶段设计，核心变量为 SFT 数据的工具标签占比与奖励函数的约束维度，逐步验证工具调用能力的习得规律与优化空间：</p>
+<ul>
+<li>第一阶段：生成<strong>无 <code>&lt;tool_call&gt;</code> 标签</strong>的 SFT 数据（10000 条）用于冷启动，作为纯知识求解的基线</li>
+<li>第二阶段：生成<strong>有 <code>&lt;tool_call&gt;</code> 标签</strong>的 SFT 数据（10000 条）用于冷启动，验证显式工具格式对能力的提升</li>
+<li>第三阶段：生成<strong>含&#x2F;不含 <code>&lt;tool_call&gt;</code> 标签的 SFT 混合数据</strong>（测试 5:5、8:2 等比例）用于冷启动，验证混合策略+约束奖励的综合效果</li>
+</ul>
+<h2 id="SFT-数据构建逻辑"><a href="#SFT-数据构建逻辑" class="headerlink" title="SFT 数据构建逻辑"></a>SFT 数据构建逻辑</h2><h3 id="数据集构造流程"><a href="#数据集构造流程" class="headerlink" title="数据集构造流程"></a>数据集构造流程</h3><ol>
+<li>模板设计：构建 10 套不同的带工具提示词模板，对模板中的数值、参数位进行挖空处理</li>
+<li>批量填充：通过预设工具函数自动补全模板空缺，生成多样化的训练样本，保证数据分布的丰富性</li>
+<li>格式对齐：统一转换为对话式训练格式，适配 XTuner 微调框架</li>
+</ol>
+<h3 id="SFT-数据格式"><a href="#SFT-数据格式" class="headerlink" title="SFT 数据格式"></a>SFT 数据格式</h3><pre><code class="language-json">{
+  &quot;conversation&quot;: [
+    {
+      &quot;system&quot;: &quot;你是一个有用的助手&quot;,
+      &quot;input&quot;: &quot;用户的问题&quot;,
+      &quot;output&quot;: &quot;模型的回答&quot;
+    }
+  ]
+}
+</code></pre>
+<h2 id="RL-数据构建逻辑"><a href="#RL-数据构建逻辑" class="headerlink" title="RL 数据构建逻辑"></a>RL 数据构建逻辑</h2><h3 id="数据集构造流程-1"><a href="#数据集构造流程-1" class="headerlink" title="数据集构造流程"></a>数据集构造流程</h3><ol>
+<li>提示词模板与 SFT 阶段保持一致，保证任务分布对齐，避免分布偏移</li>
+<li>标准答案（ground_truth）通过工具执行自动生成，用于后续规则化奖励校验</li>
+<li>共生成 10000 条 RL 训练数据，覆盖与 SFT 同分布的专家任务</li>
+</ol>
+<h3 id="RL-数据格式"><a href="#RL-数据格式" class="headerlink" title="RL 数据格式"></a>RL 数据格式</h3><p>适配 VERL 框架的强化学习训练格式，内置奖励模式与真值字段：</p>
+<pre><code class="language-json">{
+  &quot;data_source&quot;: &quot;test&quot;,
+  &quot;prompt&quot;: [
+    {
+      &quot;role&quot;: &quot;user&quot;,
+      &quot;content&quot;: &quot;请解决以下问题...\n  ... &quot;
+    }
+  ],
+  &quot;ability&quot;: &quot;&quot;,
+  &quot;reward_model&quot;: {
+    &quot;style&quot;: &quot;rule&quot;,
+    &quot;ground_truth&quot;: {}
+  },
+  &quot;extra_info&quot;: {
+    &quot;index&quot;: 0,
+    &quot;split&quot;: &quot;train&quot;
+  }
+}
+</code></pre>
+<h2 id="RL-多段奖励函数设计"><a href="#RL-多段奖励函数设计" class="headerlink" title="RL 多段奖励函数设计"></a>RL 多段奖励函数设计</h2><p>本次实验采用 <strong>RLVR（Reinforcement Learning with Verifiable Rewards，基于可验证奖励的强化学习）</strong> 范式，所有奖励均通过规则化自动校验完成打分，无需人工标注或额外奖励模型，是当前推理类、工具调用类任务强化学习的主流方案。</p>
+<p>奖励函数采用三段式递进设计，分别约束工具调用格式、答案正确性与调用效率，与业界 GRPO 训练的经典“格式+功能+效率“三层奖励设计思路一致。</p>
+<h3 id="第一部分：工具调用校验（可选）"><a href="#第一部分：工具调用校验（可选）" class="headerlink" title="第一部分：工具调用校验（可选）"></a>第一部分：工具调用校验（可选）</h3><p>针对带 <code>&lt;tool_call&gt;</code> 标签的训练阶段（第二、三阶段）启用。若模型输出未包含合法的 <code>&lt;tool_call&gt;</code> 标签，直接返回 0 分，强制模型学习工具调用的格式规范。</p>
+<h3 id="第二部分：任务正确性评分（必选）"><a href="#第二部分：任务正确性评分（必选）" class="headerlink" title="第二部分：任务正确性评分（必选）"></a>第二部分：任务正确性评分（必选）</h3><p>针对具体任务的答案准确性进行打分，是奖励的核心主体。不同任务可根据自身校验逻辑适配不同的打分规则。</p>
+<h3 id="第三部分：冗余调用惩罚（可选）"><a href="#第三部分：冗余调用惩罚（可选）" class="headerlink" title="第三部分：冗余调用惩罚（可选）"></a>第三部分：冗余调用惩罚（可选）</h3><p>仅当答案完全正确（前序得分为 1）时触发。逻辑为：对模型输出进行字符串匹配，定位第一次出现正确答案的位置，统计答案之后出现的冗余 <code>&lt;tool_call&gt;</code> 次数，采用指数衰减方式扣分——冗余调用越多，扣分越多，激励模型减少无效调用、提升执行效率。</p>
+<h2 id="核心观测指标"><a href="#核心观测指标" class="headerlink" title="核心观测指标"></a>核心观测指标</h2><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义与作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>num_turns/mean</code></td>
+<td>平均对话轮次，用于判断模型是否执行工具调用、是否存在冗余调用。计算规则：<code>num_turns = 用户轮次 + 助手轮次 + 1（初始用户提问）</code></td>
+</tr>
+<tr>
+<td><code>critic/rewards/mean</code></td>
+<td>批次平均奖励得分，反映模型整体策略的优劣程度</td>
+</tr>
+<tr>
+<td><code>critic/advantages/mean</code></td>
+<td>优势函数均值，用于判断收敛状态；当批次内奖励全 0 或全 1 时，优势值为 0，模型停止有效更新</td>
+</tr>
+<tr>
+<td><code>acc/mean@1</code></td>
+<td>验证集任务准确率，是衡量模型任务求解能力的核心效果指标</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="第一阶段：无工具标签基线实验"><a href="#第一阶段：无工具标签基线实验" class="headerlink" title="第一阶段：无工具标签基线实验"></a>第一阶段：无工具标签基线实验</h2><blockquote>
+<p>第一阶段 SFT 数据无 <code>&lt;tool_call&gt;</code> 标签<br>奖励计算仅包含“任务正确性评分“部分</p>
+</blockquote>
+<h3 id="SFT-训练结果"><a href="#SFT-训练结果" class="headerlink" title="SFT 训练结果"></a>SFT 训练结果</h3><p>训练 2 个 epoch 后，loss 最终稳定收敛在 <strong>0.022~0.025</strong> 区间，模型对任务知识的拟合程度较高。</p>
+<pre><code>- mmengine - INFO - Epoch(train) [2][110/157]  lr: 1.5826e-05  eta: 0:01:44  time: 2.2002  data_time: 0.0077  memory: 47445  grad_norm: 0.1057  loss: 0.0233
+- mmengine - INFO - Epoch(train) [2][120/157]  lr: 1.0854e-05  eta: 0:01:22  time: 2.2078  data_time: 0.0077  memory: 47476  grad_norm: 0.1036  loss: 0.0226
+- mmengine - INFO - Epoch(train) [2][130/157]  lr: 6.7741e-06  eta: 0:01:00  time: 2.2042  data_time: 0.0078  memory: 47445  grad_norm: 0.1153  loss: 0.0234
+- mmengine - INFO - Epoch(train) [2][140/157]  lr: 3.6266e-06  eta: 0:00:37  time: 2.2099  data_time: 0.0082  memory: 47507  grad_norm: 0.1142  loss: 0.0234
+- mmengine - INFO - Epoch(train) [2][150/157]  lr: 1.4430e-06  eta: 0:00:15  time: 2.2074  data_time: 0.0079  memory: 47507  grad_norm: 0.1064  loss: 0.0227
+</code></pre>
+<h3 id="RL-训练结果"><a href="#RL-训练结果" class="headerlink" title="RL 训练结果"></a>RL 训练结果</h3><ul>
+<li>最终验证准确率达到 <strong>85.9%</strong>；训练全程 <code>num_turns</code> 稳定为 2，对应 0 次工具返回 + 1 次助手输出 + 1 次初始提问，说明模型始终直接输出答案，未触发任何工具调用。</li>
+</ul>
+<pre><code>num_turns = 0 (user/tool response) + 1 (assistant) + 1 (初始) = 2
+</code></pre>
+<ul>
+<li>初始准确率已达 60% 以上，1250 步训练后收敛至 85%~87% 区间</li>
+<li>训练后期奖励得分出现下降趋势，约 1000~1100 步时模型已基本收敛</li>
+</ul>
+<pre><code>(TaskRunner pid=71780) (&quot;Final validation metrics: {&#39;val-aux/task/reward/mean@1&#39;: 0.859, &quot;
+(TaskRunner pid=71780)  &quot;&#39;val-core/task/acc/mean@1&#39;: 0.859, &#39;val-aux/num_turns/min&#39;: 2, &quot;
+(TaskRunner pid=71780)  &quot;&#39;val-aux/num_turns/max&#39;: 2, &#39;val-aux/num_turns/mean&#39;: 2.0}&quot;)
+Training Progress: 100%|██████████| 1250/1250 [3:22:44&lt;00:00,  9.73s/it]
+</code></pre>
+<h3 id="实验曲线"><a href="#实验曲线" class="headerlink" title="实验曲线"></a>实验曲线</h3><p><img src="/1-val-core_acc_mean@1.svg" alt="验证准确率曲线"><br><img src="/1-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/1-actor_entropy.svg" alt="交叉熵曲线"></p>
+<h3 id="阶段分析"><a href="#阶段分析" class="headerlink" title="阶段分析"></a>阶段分析</h3><p>SFT 阶段模型已通过大规模数据记忆了大量任务知识，因此 RL 冷启动起点较高；但由于未引入工具标签，模型不具备工具调用能力，完全依赖参数内知识求解，存在明确的准确率上限。</p>
+<hr>
+<h2 id="第二阶段：纯工具标签能力实验"><a href="#第二阶段：纯工具标签能力实验" class="headerlink" title="第二阶段：纯工具标签能力实验"></a>第二阶段：纯工具标签能力实验</h2><blockquote>
+<p>第二阶段 SFT 数据全部带 <code>&lt;tool_call&gt;</code> 标签<br>奖励计算仅包含“任务正确性评分”部分</p>
+</blockquote>
+<h3 id="SFT-训练结果-1"><a href="#SFT-训练结果-1" class="headerlink" title="SFT 训练结果"></a>SFT 训练结果</h3><p>训练 2 个 epoch 后，loss 收敛在 <strong>0.021~0.023</strong> 区间，略低于第一阶段，说明工具标签格式学习并未显著增加模型的拟合难度。</p>
+<pre><code>- mmengine - INFO - Epoch(train) [2][110/157]  lr: 8.9017e-05  eta: 0:07:26  time: 2.1896  data_time: 0.0079  memory: 47482  grad_norm: 0.1439  loss: 0.0215
+- mmengine - INFO - Epoch(train) [2][120/157]  lr: 8.2416e-05  eta: 0:07:04  time: 2.1898  data_time: 0.0076  memory: 47513  grad_norm: 0.1484  loss: 0.0218
+- mmengine - INFO - Epoch(train) [2][130/157]  lr: 7.5894e-05  eta: 0:06:42  time: 2.1892  data_time: 0.0076  memory: 47513  grad_norm: 0.1292  loss: 0.0225
+- mmengine - INFO - Epoch(train) [2][140/157]  lr: 6.9479e-05  eta: 0:06:21  time: 2.1950  data_time: 0.0077  memory: 47544  grad_norm: 0.1268  loss: 0.0219
+- mmengine - INFO - Epoch(train) [2][150/157]  lr: 6.3200e-05  eta: 0:05:59  time: 2.1899  data_time: 0.0077  memory: 47451  grad_norm: 0.1161  loss: 0.0217
+</code></pre>
+<h3 id="RL-训练结果-1"><a href="#RL-训练结果-1" class="headerlink" title="RL 训练结果"></a>RL 训练结果</h3><ul>
+<li>最终验证准确率达到 <strong>96.85%</strong>，相比第一阶段基线提升约 11 个百分点</li>
+<li><code>num_turns</code> 稳定为 8，对应 3 次工具返回 + 4 次助手输出 + 1 次初始提问，说明模型稳定执行多轮工具调用，但存在明显的冗余调用现象</li>
+</ul>
+<pre><code>num_turns = 3 (user/tool response) + 4 (assistant) + 1 (初始) = 8
+</code></pre>
+<ul>
+<li>初始准确率已达 85% 以上，仅训练 700 步左右，奖励得分、优势、交叉熵均达到收敛标准，评估准确率突破 95%</li>
+<li>单步训练耗时约 21.32 秒，显著长于第一阶段，原因是多轮工具调用导致生成序列长度大幅增加</li>
+</ul>
+<pre><code>(TaskRunner pid=26222) (&quot;Final validation metrics: {&#39;val-aux/task/reward/mean@1&#39;: 0.9685, &quot;
+(TaskRunner pid=26222)  &quot;&#39;val-core/task/acc/mean@1&#39;: 0.9685, &#39;val-aux/num_turns/min&#39;: 8, &quot;
+(TaskRunner pid=26222)  &quot;&#39;val-aux/num_turns/max&#39;: 8, &#39;val-aux/num_turns/mean&#39;: 8.0}&quot;)
+Training Progress: 100%|██████████| 1250/1250 [7:24:13&lt;00:00, 21.32s/it]
+</code></pre>
+<h3 id="实验曲线-1"><a href="#实验曲线-1" class="headerlink" title="实验曲线"></a>实验曲线</h3><p><img src="/2-num_turns_mean.svg" alt="对话轮次曲线"><br><img src="/2-val-core_acc_mean@1.svg" alt="验证准确率曲线"><br><img src="/2-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/2-actor_entropy.svg" alt="交叉熵曲线"><br><img src="/2-critic_advantages_mean.svg" alt="优势曲线"></p>
+<h3 id="阶段分析-1"><a href="#阶段分析-1" class="headerlink" title="阶段分析"></a>阶段分析</h3><p>引入显式工具调用后，模型可以借助工具执行精准求解，显著突破了参数内知识的准确率上限；但由于缺少冗余调用惩罚，模型倾向于通过重复调用工具来“保底”答案正确性，出现了调用效率低下的问题。</p>
+<hr>
+<h2 id="第三阶段：混合数据-约束奖励优化实验"><a href="#第三阶段：混合数据-约束奖励优化实验" class="headerlink" title="第三阶段：混合数据+约束奖励优化实验"></a>第三阶段：混合数据+约束奖励优化实验</h2><blockquote>
+<p>第三阶段 SFT 数据为混合数据，默认比例：含 <code>&lt;tool_call&gt;</code> 标签 : 不含 <code>&lt;tool_call&gt;</code> 标签 &#x3D; 5 : 5<br>奖励计算完整包含”工具调用校验 + 任务正确性评分 + 冗余调用惩罚”三部分</p>
+</blockquote>
+<h3 id="SFT-训练结果-2"><a href="#SFT-训练结果-2" class="headerlink" title="SFT 训练结果"></a>SFT 训练结果</h3><p>训练 2 个 epoch 后，loss 收敛在 <strong>0.028~0.030</strong> 区间，高于前两个纯数据阶段，说明混合数据同时要求模型学习两种输出模式，增加了拟合难度。</p>
+<pre><code>- mmengine - INFO - Epoch(train) [2][110/157]  lr: 1.5826e-05  eta: 0:01:42  time: 2.1671  data_time: 0.0071  memory: 47332  grad_norm: 0.1674  loss: 0.0280
+- mmengine - INFO - Epoch(train) [2][120/157]  lr: 1.0854e-05  eta: 0:01:20  time: 2.1773  data_time: 0.0070  memory: 47425  grad_norm: 0.1734  loss: 0.0281
+- mmengine - INFO - Epoch(train) [2][130/157]  lr: 6.7741e-06  eta: 0:00:58  time: 2.1777  data_time: 0.0070  memory: 47456  grad_norm: 0.1781  loss: 0.0281
+- mmengine - INFO - Epoch(train) [2][140/157]  lr: 3.6266e-06  eta: 0:00:37  time: 2.1815  data_time: 0.0070  memory: 47486  grad_norm: 0.1535  loss: 0.0263
+- mmengine - INFO - Epoch(train) [2][150/157]  lr: 1.4430e-06  eta: 0:00:15  time: 2.1756  data_time: 0.0071  memory: 47456  grad_norm: 0.1480  loss: 0.0283
+</code></pre>
+<h3 id="RL-训练结果-2"><a href="#RL-训练结果-2" class="headerlink" title="RL 训练结果"></a>RL 训练结果</h3><ul>
+<li>最终验证准确率达到 <strong>93.675%</strong>，性能介于第一、二阶段之间</li>
+<li><code>num_turns</code> 最终收敛为 8，但训练过程存在明显波动：<ul>
+<li>950 步之前（尤其是 900 步前），轮次数在冗余惩罚与工具调用奖励的双向约束下动态调整，模型尝试减少调用次数</li>
+<li>950 步之后，<code>num_turns</code> 稳定收敛在 8 轮，冗余惩罚未能持续压制“多调用保正确”的策略倾向</li>
+</ul>
+</li>
+</ul>
+<pre><code>num_turns = 3 (user/tool response) + 4 (assistant) + 1 (初始) = 8
+</code></pre>
+<ul>
+<li>初始准确率约 65%，900 步左右奖励、优势、熵值均达到收敛标准，准确率突破 90%</li>
+<li>补充测试 8:2 混合比例时，训练 100 步后 <code>num_turns</code> 便迅速收敛至 8，冗余惩罚效果进一步减弱</li>
+</ul>
+<pre><code>(TaskRunner pid=28144) (&quot;Final validation metrics: {&#39;val-aux/task/reward/mean@1&#39;: 0.93675, &quot;
+(TaskRunner pid=28144)  &quot;&#39;val-core/task/acc/mean@1&#39;: 0.93675, &#39;val-aux/num_turns/min&#39;: 8, &quot;
+(TaskRunner pid=28144)  &quot;&#39;val-aux/num_turns/max&#39;: 8, &#39;val-aux/num_turns/mean&#39;: 8.0}&quot;)
+Training Progress: 100%|██████████| 1250/1250 [7:03:41&lt;00:00, 20.34s/it]
+</code></pre>
+<h3 id="实验曲线-2"><a href="#实验曲线-2" class="headerlink" title="实验曲线"></a>实验曲线</h3><p><img src="/3-num_turns_mean.svg" alt="对话轮次曲线"><br><img src="/3-val-core_acc_mean@1.svg" alt="验证准确率曲线"><br><img src="/3-critic_rewards_mean.svg" alt="奖励得分曲线"><br><img src="/3-actor_entropy.svg" alt="交叉熵曲线"><br><img src="/3-critic_advantages_mean.svg" alt="优势曲线"></p>
+<h3 id="阶段分析-2"><a href="#阶段分析-2" class="headerlink" title="阶段分析"></a>阶段分析</h3><p>混合数据可以让模型同时习得“直接回答”与“工具调用”两种求解策略，但 5:5 比例下最终准确率略低于纯工具数据；当前指数惩罚的力度不足以抵消“多调用提升正确率”的收益，模型最终仍会收敛到冗余调用策略。</p>
+<hr>
+<h2 id="实验结论与优化方向"><a href="#实验结论与优化方向" class="headerlink" title="实验结论与优化方向"></a>实验结论与优化方向</h2><blockquote>
+<p>受时间限制，本次仅完成基础梯度实验，以下为基于现有结果的总结与后续优化建议。</p>
+</blockquote>
+<h3 id="数据层面"><a href="#数据层面" class="headerlink" title="数据层面"></a>数据层面</h3><ol>
+<li><strong>混合数据具备可行性</strong>：含&#x2F;不含工具标签的混合数据可让模型习得两种求解策略，具备实用价值，但需进一步调试最优比例（可继续测试 6:4、7:3 等梯度）。</li>
+<li><strong>数据打乱是必要操作</strong>：若混合数据不打乱顺序，模型在前半段无标签数据上学会“不调用工具”后，后半段带标签数据训练时可能因工具校验奖励全 0，导致优势为 0、梯度消失，模型无法更新。<ul>
+<li><strong>GRPO 算法</strong>：全 0&#x2F;全 1 奖励会导致组内优势归一化后失效，梯度为 0，模型停止学习，这是 GRPO 算法的已知固有缺陷。</li>
+<li><strong>DAPO 算法</strong>：全称为 Decoupled Clip and Dynamic sAmpling Policy Optimization（解耦裁剪与动态采样策略优化），通过提升 clip ratio 上限、引入重试策略缓解 GRPO 的梯度消失与熵塌陷问题。但在模型已形成稳定策略的场景下，其探索能力仍有限，难以打破已固化的策略偏好。</li>
+<li><strong>OPD 算法</strong>：全称为 On-policy Distillation（在线策略蒸馏），通过外部教师模型提供监督信号，不受学生模型当前策略的限制，更有可能打破策略固化，理论上效果优于前两者。</li>
+</ul>
+</li>
+</ol>
+<h3 id="训练层面"><a href="#训练层面" class="headerlink" title="训练层面"></a>训练层面</h3><p>可采用<strong>早停策略</strong>平衡效果与效率。例如第三阶段实验中，训练至 800 步左右即可停止，此时准确率已达 90% 左右，且 <code>num_turns</code> 仍处于动态优化状态，可避免最终收敛到冗余调用策略，兼顾准确率与调用效率。</p>
+<h3 id="奖励设计层面"><a href="#奖励设计层面" class="headerlink" title="奖励设计层面"></a>奖励设计层面</h3><p>当前三段式奖励框架整体合理，但需精细化调参以平衡多个目标：</p>
+<ul>
+<li>调整工具调用校验的严格程度，避免过度约束抑制探索</li>
+<li>优化冗余调用的惩罚系数，平衡“答案正确性”与“调用效率”的权重</li>
+<li>可增加对最少调用步数的正向奖励，主动引导模型用最少轮次得到正确答案</li>
+</ul>
+<h3 id="奖励函数核心实现"><a href="#奖励函数核心实现" class="headerlink" title="奖励函数核心实现"></a>奖励函数核心实现</h3><pre><code class="language-python">@classmethod
+def _verify_correction(cls, extract_solution, identity: dict, **kwargs) -&gt; float:
+    &quot;&quot;&quot;
+    验证提取的解决方案并计算正确性分数。
+    现在 extract_solution 可能是一个字典（包含 parsed, raw_output, end_pos, parsed_str）。
+    &quot;&quot;&quot;
+    # 提取答案相关信息
+    if isinstance(extract_solution, dict):
+        parsed = extract_solution[&quot;parsed&quot;]
+        raw_output = extract_solution.get(&quot;raw_output&quot;, &quot;&quot;)
+        end_pos = extract_solution.get(&quot;end_pos&quot;, len(raw_output))
+        parsed_str = extract_solution.get(&quot;parsed_str&quot;, &quot;&quot;)
+    else:
+        parsed = extract_solution
+        raw_output = &quot;&quot;
+        end_pos = 0
+        parsed_str = &quot;&quot;
+    if not parsed or not isinstance(parsed, list) or len(parsed) != 2:
+        return 0.0
+        
+    try:
+        # 第一部分：检查是否调用工具
+        if not &quot;&lt;tool_call&gt;{\&quot;name\&quot;: \&quot;detect_parallel_intervals\&quot;, \&quot;arguments\&quot;: {\&quot;current_data\&quot;: [{&quot; in raw_output or not &quot;&lt;/tool_call&gt;&quot; in raw_output:
+            return 0.0
+        # 第二部分：根据不同应用场景调整奖励设计参数
+        final_score = max(0.0, 1.0 - penalty)
+        # 第三部分：校验答案后多余tool call
+        # 仅满分（完全正确）时，校验答案后多余tool call
+        if final_score &gt;= 1.0 and raw_output and parsed_str:
+            # 找到第一个标准答案字符串的末尾下标
+            ans_start_idx = raw_output.find(parsed_str)
+            if ans_start_idx != -1:
+                ans_end_idx = ans_start_idx + len(parsed_str)
+                # 截取答案字符串之后全部文本
+                text_after_answer = raw_output[ans_end_idx:]
+                # 统计答案后所有工具调用标记
+                tool_call_count = text_after_answer.count(&quot;&lt;tool_call&gt;&quot;)
+                if tool_call_count &gt; 0:
+                    # 指数惩罚，每多一次tool call乘以0.95
+                    final_score *= (0.95 ** tool_call_count)
+        return max(0.0, final_score)
+    except Exception as e:
+        print(f&quot;  [验证错误] {e}&quot;)
+        import traceback
+        print(f&quot;  [验证错误] 异常堆栈:\n{traceback.format_exc()}&quot;)
+        return 0.0
+</code></pre>
