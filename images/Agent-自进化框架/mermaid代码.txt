@@ -1,0 +1,89 @@
+flowchart TB
+    subgraph online["在线交互模块"]
+        direction TB
+        Start([开始])
+        UserInput[接收用户输入指令]
+        StudentExec[学生模型执行推理<br/>内存上下文 + 向量库检索]
+        ReturnResult[向用户返回执行结果]
+        SessionEnd{当前会话是否结束?}
+        WaitNext[等待下一次会话]
+    end
+
+    MemoryPersist[会话数据持久化<br/>内存清空 / 向量库存摘要 / SQLite全量落盘]
+
+    subgraph offline["离线进化层"]
+        direction LR
+
+        subgraph fast["快进化模块（提示词优化）"]
+            direction TB
+            FastEvolve[触发快进化<br/>教师模型介入]
+            DiagnosePrompt[诊断会话表现<br/>生成优化版系统提示词]
+            FreezeValFast[冻结统一验证集<br/>次新M条 + 历史随机K条]
+            ComparePrompt[同集对比新旧提示词<br/>含min_margin阈值校验]
+            PromptPass{新版得分 ≥ 旧版?}
+            ReplacePrompt[替换现役系统提示词<br/>记录版本迭代信息]
+            DiscardPrompt[丢弃新版提示词<br/>留存失败原因]
+        end
+
+        subgraph slow["慢进化模块（权重优化）"]
+            direction TB
+            SlowEvolvePrep[慢进化素材生成<br/>教师为会话打综合奖励]
+            SaveBuffer[写入训练缓冲区]
+            BufferFull{训练样本累积达N条?}
+            FilterData[数据质量过滤<br/>剔除低质/不完整样本]
+            ExportData[导出VERL兼容训练数据<br/>N条最新样本，H条历史样本]
+            GRPOTrain[调用VERL执行GRPO与OPD权重微调]
+            FreezeValSlow[冻结统一验证集<br/>次新M条 + 历史随机K条]
+            CompareWeight[同集对比新旧权重]
+            WeightPass{新版得分 ≥ 旧版?}
+            DeployWeight[部署新权重上线]
+            RollbackWeight[回滚至原权重版本]
+            ClearBuffer[清空训练缓冲区]
+        end
+    end
+
+    EndNode([结束])
+
+    %% ========== 连线逻辑 ==========
+    Start --> UserInput
+    UserInput --> StudentExec
+    StudentExec --> ReturnResult
+    ReturnResult --> SessionEnd
+    SessionEnd -->|否| UserInput
+    SessionEnd -->|是| MemoryPersist
+
+    MemoryPersist --> FastEvolve
+    MemoryPersist --> SlowEvolvePrep
+
+    FastEvolve --> DiagnosePrompt
+    DiagnosePrompt --> FreezeValFast
+    FreezeValFast --> ComparePrompt
+    ComparePrompt --> PromptPass
+    PromptPass -->|是| ReplacePrompt
+    PromptPass -->|否| DiscardPrompt
+
+    SlowEvolvePrep --> SaveBuffer
+    SaveBuffer --> BufferFull
+    BufferFull -->|否| WaitNext
+    WaitNext --> UserInput
+    BufferFull -->|是| FilterData
+    FilterData --> ExportData
+    ExportData --> GRPOTrain
+    GRPOTrain --> FreezeValSlow
+    FreezeValSlow --> CompareWeight
+    CompareWeight --> WeightPass
+    WeightPass -->|是| DeployWeight
+    WeightPass -->|否| RollbackWeight
+    DeployWeight --> ClearBuffer
+    RollbackWeight --> ClearBuffer
+
+    ReplacePrompt --> EndNode
+    DiscardPrompt --> EndNode
+    ClearBuffer --> EndNode
+
+    %% ========== 模块样式配色 ==========
+    style online fill:#E6F4FF,stroke:#1890FF,stroke-width:2px
+    style MemoryPersist fill:#F0F0F0,stroke:#8C8C8C,stroke-width:2px
+    style offline fill:#FAFAFA,stroke:#595959,stroke-width:1px,stroke-dasharray:5 5
+    style fast fill:#F6FFED,stroke:#52C41A,stroke-width:2px
+    style slow fill:#FFF7E6,stroke:#FA8C16,stroke-width:2px
